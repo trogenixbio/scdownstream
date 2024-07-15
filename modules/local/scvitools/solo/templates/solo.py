@@ -2,6 +2,7 @@
 
 import scvi
 import anndata as ad
+import pandas as pd
 from scvi.model import SCVI
 from scvi.external import SOLO
 import platform
@@ -63,7 +64,7 @@ if len(unique_labels) > 0:
     )
     model.train(max_epochs=n_epochs, **train_kwargs)
 
-adata.obs["doublet"] = True
+results = []
 
 batches = adata.obs["batch"].unique()
 for batch in batches:
@@ -71,10 +72,13 @@ for batch in batches:
         model, restrict_to_batch=batch if len(batches) > 1 else None
     )
     solo.train()
-    result = solo.predict(False)
+    result = pd.concat([solo.predict(False), solo.predict(True)], axis=0)
 
-    doublets = result[result == "doublet"].index.tolist()
-    adata.obs.loc[doublets, "doublet"] = False
+    results.append(result)
+
+df_results = pd.concat(results, axis=1)
+df_results = df_results.loc[adata.obs_names]
+print(df_results)
 
 df = adata.obs[["doublet"]]
 df.columns = ["${prefix}"]
@@ -92,6 +96,7 @@ versions = {
         "python": platform.python_version(),
         "anndata": ad.__version__,
         "scvi": scvi.__version__,
+        "pandas": pd.__version__,
     }
 }
 
